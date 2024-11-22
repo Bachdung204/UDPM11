@@ -1,34 +1,33 @@
-// src/components/MyNfts.js
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { apiKey } from '../api'; 
-import '../App.css';  // Đảm bảo import đúng
+import '../App.css';
 
 const MyNfts = ({ referenceId }) => {
   const [myNfts, setMyNfts] = useState([]);
 
   useEffect(() => {
+    const fetchMyNfts = async () => {
+      try {
+        const response = await axios.get(`https://api.gameshift.dev/nx/nfts/${referenceId}`, {
+          headers: {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "x-api-key": apiKey,
+          },
+        });
+        if (response.data) {
+          setMyNfts(response.data);
+        }
+      } catch (err) {
+        console.error("Không thể lấy dữ liệu NFT của tôi", err);
+      }
+    };
+
     if (referenceId) {
       fetchMyNfts();
     }
-  }, [referenceId]);
-
-  const fetchMyNfts = async () => {
-    try {
-      const response = await axios.get(`https://api.gameshift.dev/nx/nfts/${referenceId}`, {
-        headers: {
-          "accept": "application/json",
-          "content-type": "application/json",
-          "x-api-key": apiKey,
-        },
-      });
-      if (response.data) {
-        setMyNfts(response.data);
-      }
-    } catch (err) {
-      console.error("Không thể lấy dữ liệu NFT của tôi", err);
-    }
-  };
+  }, [referenceId]); // Now fetchMyNfts is defined inside useEffect, so it's not needed in dependencies
 
   return (
     <div>

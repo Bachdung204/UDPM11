@@ -37,7 +37,7 @@ const AuthForm = ({ setIsLoggedIn, setUserData }) => {
     return true;
   };
 
-  const handleRegister = async () => {
+  const handleAction = async (isRegister) => {
     if (!validateForm()) return;
 
     setIsLoading(true);
@@ -45,148 +45,143 @@ const AuthForm = ({ setIsLoggedIn, setUserData }) => {
     setSuccessMessage('');
 
     try {
-      const response = await axios.post(apiUrl, formData, {
-        headers: { 
-          "x-api-key": apiKey,
-          "Content-Type": "application/json"
-        }
-      });
+      const response = isRegister
+        ? await axios.post(apiUrl, formData, {
+            headers: {
+              "x-api-key": apiKey,
+              "Content-Type": "application/json",
+            },
+          })
+        : await axios.get(apiUrl, {
+            params: formData,
+            headers: { "x-api-key": apiKey },
+          });
 
       if (response.data) {
-        setSuccessMessage('Đăng ký thành công!');
+        setSuccessMessage(
+          isRegister ? 'Đăng ký thành công!' : 'Đăng nhập thành công!'
+        );
         setTimeout(() => {
-          setUserData(formData);  // First update userData
-          setIsLoggedIn(true);    // Then update login state
+          setUserData(formData);
+          setIsLoggedIn(true);
           setIsFormVisible(false);
         }, 1500);
       }
     } catch (err) {
-      console.error('Registration error:', err);
-      
-      if (err.response) {
-        switch (err.response.status) {
-          case 409:
-            if (err.response.data.message?.includes('email')) {
-              setErrorMessage('Email đã được sử dụng. Vui lòng chọn email khác.');
-            } else if (err.response.data.message?.includes('referenceId')) {
-              setErrorMessage('ReferenceId đã tồn tại. Vui lòng chọn referenceId khác.');
-            } else {
-              setErrorMessage('Tài khoản đã tồn tại trong hệ thống.');
-            }
-            break;
-          case 400:
-            setErrorMessage('Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.');
-            break;
-          case 403:
-            setErrorMessage('Không có quyền thực hiện thao tác này.');
-            break;
-          default:
-            setErrorMessage('Đã xảy ra lỗi trong quá trình đăng ký. Vui lòng thử lại sau.');
-        }
-      } else if (err.request) {
-        setErrorMessage('Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.');
-      } else {
-        setErrorMessage('Đã xảy ra lỗi không xác định. Vui lòng thử lại sau.');
-      }
+      setErrorMessage(
+        err.response?.status === 404
+          ? 'Tài khoản không tồn tại hoặc thông tin không chính xác.'
+          : 'Đã xảy ra lỗi. Vui lòng thử lại sau.'
+      );
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleLogin = async () => {
-    if (!validateForm()) return;
-
-    setIsLoading(true);
-    setErrorMessage('');
-    setSuccessMessage('');
-
-    try {
-      const response = await axios.get(apiUrl, {
-        params: formData,
-        headers: { 
-          "x-api-key": apiKey 
-        }
-      });
-
-      if (response.data) {
-        setSuccessMessage('Đăng nhập thành công!');
-        setTimeout(() => {
-          setUserData(formData);  // First update userData
-          setIsLoggedIn(true);    // Then update login state
-        }, 1500);
-      }
-    } catch (err) {
-      if (err.response?.status === 404) {
-        setErrorMessage('Tài khoản không tồn tại hoặc thông tin không chính xác.');
-      } else {
-        setErrorMessage('Đã xảy ra lỗi trong quá trình đăng nhập. Vui lòng thử lại sau.');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleSwitchForm = () => {
-    setIsRegistering(!isRegistering);
-    setFormData({ email: '', referenceId: '' });
-    setErrorMessage('');
-    setSuccessMessage('');
   };
 
   if (!isFormVisible) {
-    return <div className="success-redirect">Đang chuyển hướng...</div>;
+    return (
+      <div className="position-absolute top-50 start-50 translate-middle text-center">
+        <div className="spinner-grow text-primary" role="status">
+          <span className="visually-hidden">Loading...</span>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="auth-container">
-      <div className={isRegistering ? "register-form" : "login-form"}>
-        <h3 style={{ color: isRegistering ? '#28a745' : '#007bff' }}>
-          {isRegistering ? 'Đăng ký tài khoản' : 'Đăng nhập'}
-        </h3>
-        <p>{isRegistering ? 'Vui lòng điền thông tin để tạo tài khoản mới.' : 'Nhập thông tin tài khoản để đăng nhập.'}</p>
-        
-        <input 
-          type="text"
-          name="referenceId"
-          placeholder="Nhập referenceId"
-          value={formData.referenceId}
-          onChange={handleInputChange}
-          disabled={isLoading}
-        />
-        
-        <input 
-          type="email"
-          name="email"
-          placeholder="Nhập email"
-          value={formData.email}
-          onChange={handleInputChange}
-          disabled={isLoading}
-        />
+    <div className="vh-100 d-flex align-items-center justify-content-center bg-light">
+      <div className="container">
+        <div className="row justify-content-center">
+          <div className="col-md-5 col-lg-4">
+            <div className="bg-white rounded-4 p-4 shadow-sm">
+              {/* Header */}
+              <div className="text-center mb-4">
+                <h4 className="fw-bold mb-1 text-dark">
+                  {isRegistering ? 'Tạo tài khoản' : 'Đăng nhập'}
+                </h4>
+                <p className="text-secondary small mb-0">
+                  {isRegistering
+                    ? 'Nhập thông tin để tạo tài khoản mới'
+                    : 'Đăng nhập để tiếp tục'}
+                </p>
+              </div>
 
-        <button 
-          onClick={isRegistering ? handleRegister : handleLogin}
-          disabled={isLoading}
-        >
-          {isLoading ? 'Đang xử lý...' : (isRegistering ? 'Đăng ký' : 'Đăng nhập')}
-        </button>
+              {/* Form */}
+              <form>
+                <div className="mb-3">
+                  <input
+                    type="text"
+                    className="form-control form-control-lg bg-light border-0 rounded-3"
+                    placeholder="Reference ID"
+                    name="referenceId"
+                    value={formData.referenceId}
+                    onChange={handleInputChange}
+                    disabled={isLoading}
+                  />
+                </div>
 
-        {errorMessage && (
-          <p className="error-message" style={{ color: 'red' }}>{errorMessage}</p>
-        )}
-        {successMessage && (
-          <p className="success-message" style={{ color: 'green' }}>{successMessage}</p>
-        )}
+                <div className="mb-4">
+                  <input
+                    type="email"
+                    className="form-control form-control-lg bg-light border-0 rounded-3"
+                    placeholder="Email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    disabled={isLoading}
+                  />
+                </div>
 
-        <p>
-          {isRegistering ? "Đã có tài khoản?" : "Chưa có tài khoản?"}
-          <button 
-            onClick={handleSwitchForm}
-            disabled={isLoading}
-            style={{ color: '#007bff', fontWeight: 'bold' }}
-          >
-            {isRegistering ? "Đăng nhập" : "Đăng ký"}
-          </button>
-        </p>
+                <button
+                  type="button"
+                  className={`btn ${isRegistering ? 'btn-dark' : 'btn-primary'} w-100 py-3 rounded-3 position-relative overflow-hidden`}
+                  onClick={() => handleAction(isRegistering)}
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <div className="spinner-border spinner-border-sm" role="status">
+                      <span className="visually-hidden">Loading...</span>
+                    </div>
+                  ) : (
+                    <span className="fw-semibold">
+                      {isRegistering ? 'Đăng ký' : 'Đăng nhập'}
+                    </span>
+                  )}
+                </button>
+              </form>
+
+              {/* Messages */}
+              {errorMessage && (
+                <div className="alert alert-danger py-2 mt-3 mb-0 text-center small">
+                  {errorMessage}
+                </div>
+              )}
+
+              {successMessage && (
+                <div className="alert alert-success py-2 mt-3 mb-0 text-center small">
+                  {successMessage}
+                </div>
+              )}
+
+              {/* Switch Login/Register */}
+              <div className="text-center mt-4">
+                <button
+                  type="button"
+                  className="btn btn-link text-decoration-none p-0 text-secondary"
+                  onClick={() => setIsRegistering(!isRegistering)}
+                  disabled={isLoading}
+                >
+                  <small>
+                    {isRegistering ? 'Đã có tài khoản? ' : 'Chưa có tài khoản? '}
+                    <span className="text-primary fw-semibold">
+                      {isRegistering ? 'Đăng nhập' : 'Đăng ký'}
+                    </span>
+                  </small>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
