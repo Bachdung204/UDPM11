@@ -1,149 +1,193 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { apiKey } from '../api'; // Đảm bảo apiKey của bạn đã được khai báo đúng
+import { apiKey } from '../api';
 
-const apiUrl = "https://api.gameshift.dev/nx/users"; // URL API GameShift
+const apiUrl = "https://api.gameshift.dev/nx/users";
 
 const AuthForm = ({ setIsLoggedIn, setUserData }) => {
-  const [email, setEmail] = useState('');
-  const [referenceId, setReferenceId] = useState('');
-  const [isRegistering, setIsRegistering] = useState(false); // Trạng thái đăng ký
+  const [formData, setFormData] = useState({
+    email: '',
+    referenceId: ''
+  });
+  const [isRegistering, setIsRegistering] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-  const [isFormVisible, setIsFormVisible] = useState(true); // Trạng thái hiển thị form
+  const [isFormVisible, setIsFormVisible] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Xóa dữ liệu khi chuyển form
-  const handleSwitchForm = () => {
-    setIsRegistering(!isRegistering);
-    setEmail(''); // Xóa email khi chuyển form
-    setReferenceId(''); // Xóa referenceId khi chuyển form
-    setErrorMessage(''); // Xóa thông báo lỗi
-    setSuccessMessage(''); // Xóa thông báo thành công
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    setErrorMessage('');
+    setSuccessMessage('');
   };
 
-  // Đăng ký tài khoản
-  const handleRegister = async () => {
-    if (!referenceId || !email) {
+  const validateForm = () => {
+    if (!formData.referenceId || !formData.email) {
       setErrorMessage('Vui lòng nhập đầy đủ thông tin.');
-      return;
+      return false;
     }
+    if (!formData.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+      setErrorMessage('Email không hợp lệ.');
+      return false;
+    }
+    return true;
+  };
+
+  const handleRegister = async () => {
+    if (!validateForm()) return;
+
+    setIsLoading(true);
+    setErrorMessage('');
+    setSuccessMessage('');
 
     try {
-      const response = await axios.post(apiUrl, { referenceId, email }, {
-        headers: { "x-api-key": apiKey }
+      const response = await axios.post(apiUrl, formData, {
+        headers: { 
+          "x-api-key": apiKey,
+          "Content-Type": "application/json"
+        }
       });
 
-      if (response.status === 201) {
-        // Kiểm tra nếu mã trạng thái là 201 và trả về JSON thành công
-        setIsLoggedIn(true);
-        setUserData({ referenceId, email });
+      if (response.data) {
         setSuccessMessage('Đăng ký thành công!');
-        setIsFormVisible(false); // Ẩn form đăng ký sau khi thành công
-      } else {
-        setErrorMessage('Đã xảy ra lỗi trong quá trình đăng ký.');
+        setTimeout(() => {
+          setUserData(formData);  // First update userData
+          setIsLoggedIn(true);    // Then update login state
+          setIsFormVisible(false);
+        }, 1500);
       }
     } catch (err) {
+      console.error('Registration error:', err);
+      
       if (err.response) {
-        // Kiểm tra lỗi trùng email hoặc referenceId
-        if (err.response.status === 409) {
-          if (err.response.data.message.includes('email')) {
-            setErrorMessage('Email đã được sử dụng. Vui lòng chọn email khác.');
-          } else if (err.response.data.message.includes('referenceId')) {
-            setErrorMessage('ReferenceId đã tồn tại. Vui lòng chọn referenceId khác.');
-          }
-        } else {
-          setErrorMessage('Đã xảy ra lỗi trong quá trình đăng ký.');
+        switch (err.response.status) {
+          case 409:
+            if (err.response.data.message?.includes('email')) {
+              setErrorMessage('Email đã được sử dụng. Vui lòng chọn email khác.');
+            } else if (err.response.data.message?.includes('referenceId')) {
+              setErrorMessage('ReferenceId đã tồn tại. Vui lòng chọn referenceId khác.');
+            } else {
+              setErrorMessage('Tài khoản đã tồn tại trong hệ thống.');
+            }
+            break;
+          case 400:
+            setErrorMessage('Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.');
+            break;
+          case 403:
+            setErrorMessage('Không có quyền thực hiện thao tác này.');
+            break;
+          default:
+            setErrorMessage('Đã xảy ra lỗi trong quá trình đăng ký. Vui lòng thử lại sau.');
         }
+      } else if (err.request) {
+        setErrorMessage('Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.');
       } else {
-        // Xử lý lỗi không có phản hồi từ server
-        setErrorMessage('Đã xảy ra lỗi trong quá trình đăng ký.');
+        setErrorMessage('Đã xảy ra lỗi không xác định. Vui lòng thử lại sau.');
       }
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Đăng nhập tài khoản
   const handleLogin = async () => {
-    if (!referenceId || !email) {
-      setErrorMessage('Vui lòng nhập đầy đủ thông tin đăng nhập.');
-      return;
-    }
+    if (!validateForm()) return;
+
+    setIsLoading(true);
+    setErrorMessage('');
+    setSuccessMessage('');
 
     try {
       const response = await axios.get(apiUrl, {
-        params: { referenceId, email },
-        headers: { "x-api-key": apiKey }
+        params: formData,
+        headers: { 
+          "x-api-key": apiKey 
+        }
       });
 
-      if (response.status === 200) {
-        setIsLoggedIn(true);
-        setUserData({ referenceId, email });
+      if (response.data) {
         setSuccessMessage('Đăng nhập thành công!');
+        setTimeout(() => {
+          setUserData(formData);  // First update userData
+          setIsLoggedIn(true);    // Then update login state
+        }, 1500);
       }
     } catch (err) {
-      if (err.response && err.response.status === 404) {
+      if (err.response?.status === 404) {
         setErrorMessage('Tài khoản không tồn tại hoặc thông tin không chính xác.');
       } else {
-        console.error("Lỗi đăng nhập", err);
-        setErrorMessage('Đã xảy ra lỗi trong quá trình đăng nhập.');
+        setErrorMessage('Đã xảy ra lỗi trong quá trình đăng nhập. Vui lòng thử lại sau.');
       }
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  const handleSwitchForm = () => {
+    setIsRegistering(!isRegistering);
+    setFormData({ email: '', referenceId: '' });
+    setErrorMessage('');
+    setSuccessMessage('');
+  };
+
+  if (!isFormVisible) {
+    return <div className="success-redirect">Đang chuyển hướng...</div>;
+  }
+
   return (
     <div className="auth-container">
-      {isFormVisible && (isRegistering ? (
-        // Form đăng ký
-        <div className="register-form">
-          <h3 style={{ color: '#28a745' }}>Đăng ký tài khoản</h3>
-          <p>Vui lòng điền thông tin để tạo tài khoản mới.</p>
-          <input 
-            type="text" 
-            placeholder="Nhập referenceId" 
-            value={referenceId} 
-            onChange={(e) => setReferenceId(e.target.value)} 
-          />
-          <input 
-            type="email" 
-            placeholder="Nhập email" 
-            value={email} 
-            onChange={(e) => setEmail(e.target.value)} 
-          />
-          <button onClick={handleRegister}>Đăng ký</button>
-        </div>
-      ) : (
-        // Form đăng nhập
-        <div className="login-form">
-          <h3 style={{ color: '#007bff' }}>Đăng nhập</h3>
-          <p>Nhập thông tin tài khoản để đăng nhập.</p>
-          <input 
-            type="text" 
-            placeholder="Nhập referenceId" 
-            value={referenceId} 
-            onChange={(e) => setReferenceId(e.target.value)} 
-          />
-          <input 
-            type="email" 
-            placeholder="Nhập email" 
-            value={email} 
-            onChange={(e) => setEmail(e.target.value)} 
-          />
-          <button onClick={handleLogin}>Đăng nhập</button>
-        </div>
-      ))}
+      <div className={isRegistering ? "register-form" : "login-form"}>
+        <h3 style={{ color: isRegistering ? '#28a745' : '#007bff' }}>
+          {isRegistering ? 'Đăng ký tài khoản' : 'Đăng nhập'}
+        </h3>
+        <p>{isRegistering ? 'Vui lòng điền thông tin để tạo tài khoản mới.' : 'Nhập thông tin tài khoản để đăng nhập.'}</p>
+        
+        <input 
+          type="text"
+          name="referenceId"
+          placeholder="Nhập referenceId"
+          value={formData.referenceId}
+          onChange={handleInputChange}
+          disabled={isLoading}
+        />
+        
+        <input 
+          type="email"
+          name="email"
+          placeholder="Nhập email"
+          value={formData.email}
+          onChange={handleInputChange}
+          disabled={isLoading}
+        />
 
-      {errorMessage && <p className="error-message" style={{ color: 'red' }}>{errorMessage}</p>}
-      {successMessage && <p className="success-message" style={{ color: 'green' }}>{successMessage}</p>}
+        <button 
+          onClick={isRegistering ? handleRegister : handleLogin}
+          disabled={isLoading}
+        >
+          {isLoading ? 'Đang xử lý...' : (isRegistering ? 'Đăng ký' : 'Đăng nhập')}
+        </button>
 
-      <p>
-        {isFormVisible && (isRegistering ? "Đã có tài khoản?" : "Chưa có tài khoản?")}
-        {isFormVisible && (
+        {errorMessage && (
+          <p className="error-message" style={{ color: 'red' }}>{errorMessage}</p>
+        )}
+        {successMessage && (
+          <p className="success-message" style={{ color: 'green' }}>{successMessage}</p>
+        )}
+
+        <p>
+          {isRegistering ? "Đã có tài khoản?" : "Chưa có tài khoản?"}
           <button 
-            onClick={handleSwitchForm} 
-            style={{ color: '#007bff', fontWeight: 'bold' }} >
+            onClick={handleSwitchForm}
+            disabled={isLoading}
+            style={{ color: '#007bff', fontWeight: 'bold' }}
+          >
             {isRegistering ? "Đăng nhập" : "Đăng ký"}
           </button>
-        )}
-      </p>
+        </p>
+      </div>
     </div>
   );
 };
