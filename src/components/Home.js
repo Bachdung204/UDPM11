@@ -125,7 +125,7 @@ const Home = () => {
                 </div>
                 <div className="alert alert-info mb-0">
                   <h3 className="mb-0">
-                    Số dư: <span className="fw-bold">{balance.toFixed(4)} SOL</span>
+                    Số dư: <span className="fw-bold">{balance.toFixed(2)} SOL</span>
                   </h3>
                 </div>
               </div>
